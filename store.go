@@ -3006,7 +3006,7 @@ func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, erro
 	// While the general rules require the layer store to only be locked RO (apart from known LOCKING BUGs)
 	// the overlay driver requires the primary layer store to be locked RW; see
 	// drivers/overlay.Driver.getMergedDir.
-	if err := rlstore.startWriting(); err != nil {
+	if err := rlstore.startReading(); err != nil {
 		return nil, err
 	}
 	if rlstore.Exists(to) {
@@ -3014,15 +3014,15 @@ func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, erro
 		if rc != nil && err == nil {
 			wrapped := ioutils.NewReadCloserWrapper(rc, func() error {
 				err := rc.Close()
-				rlstore.stopWriting()
+				rlstore.stopReading()
 				return err
 			})
 			return wrapped, nil
 		}
-		rlstore.stopWriting()
+		rlstore.stopReading()
 		return rc, err
 	}
-	rlstore.stopWriting()
+	rlstore.stopReading()
 
 	for _, s := range lstores {
 		store := s
