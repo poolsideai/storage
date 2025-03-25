@@ -271,6 +271,7 @@ type FileInfo struct {
 	added      bool
 	xattrs     map[string]string
 	target     string
+	hash       []byte
 }
 
 // LookUp looks up the file information of a file.
@@ -335,7 +336,15 @@ func (info *FileInfo) addChanges(oldInfo *FileInfo, changes *[]Change) {
 			// be visible when actually comparing the stat fields. The only time this
 			// breaks down is if some code intentionally hides a change by setting
 			// back mtime
-			if statDifferent(oldStat, oldInfo, newStat, info) ||
+			infoStatDifferent := statDifferent(oldStat, oldInfo, newStat, info)
+			if !oldStat.IsDir() && !newStat.IsDir() && oldStat.Size() == newStat.Size() && infoStatDifferent {
+				if oldChild.hash != nil && bytes.Equal(oldChild.hash, newChild.hash) {
+					logrus.Debugf("Identical content detected, not generating change for %s", newChild.path())
+					continue
+				}
+
+			}
+			if infoStatDifferent ||
 				!bytes.Equal(oldChild.capability, newChild.capability) ||
 				oldChild.target != newChild.target ||
 				!reflect.DeepEqual(oldChild.xattrs, newChild.xattrs) {

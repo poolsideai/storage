@@ -2,8 +2,10 @@ package archive
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -47,7 +49,6 @@ func collectFileInfoForChanges(dir1, dir2 string, idmap1, idmap2 *idtools.IDMapp
 		root1: newRootFileInfo(idmap1),
 		root2: newRootFileInfo(idmap2),
 	}
-
 	i1, err := os.Lstat(w.dir1)
 	if err != nil {
 		return nil, nil, err
@@ -115,6 +116,18 @@ func walkchunk(path string, fi os.FileInfo, dir string, root *FileInfo) error {
 		info.target, err = os.Readlink(cpath)
 		if err != nil {
 			return err
+		}
+	}
+	// NOTICE: best effort content hashing
+	if !info.stat.IsDir() {
+		file, err := os.Open(cpath)
+		if err == nil {
+			defer file.Close()
+			hash := sha256.New()
+			_, err = io.Copy(hash, file)
+			if err == nil {
+				info.hash = hash.Sum(nil)
+			}
 		}
 	}
 	parent.children[info.name] = info
